@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AICom — 让 AI 摸到你的硬件 · 本地设备 MCP 网关</title>
+<meta name="description" content="AICom 是运行在本机的设备 MCP 网关：把串口终端、固件烧录、继电器电源控制注册为标准 MCP 工具，Claude Code 等 AI Agent 通过局域网直接操作你的开发板。纯本地运行，数据不出机。">
+<meta property="og:title" content="AICom — 让 AI 摸到你的硬件">
+<meta property="og:description" content="本地设备 MCP 网关：串口 · 烧录 · 电源控制，开放给任意 AI Agent。纯本地运行。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://mengxiangrui1211.github.io/aicom-site/assets/img/appicon.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0d10'/%3E%3Cpath d='M9 22L16 9l7 13' stroke='%23FF7300' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11.5 17.5h9' stroke='%23FF7300' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='21.5' cy='23.5' r='1.6' fill='%233fb950'/%3E%3C/svg%3E">
+<style>
+/* ═══════════════ AICom 官网 · 融合定稿 ═══════════════
+   骨架 = 深夜硬件工作台（B）· 能量 = 暖橙大 CTA（A）· 三 IP 全员出演
+   零外部依赖：Windows 自带 Bahnschrift / Cascadia，国内秒开
+   版本号单一来源：底部 const APP_VERSION 注入全部 [data-ver] */
+:root {
+  --bg: #0a0d10;
+  --bg2: #0d1117;
+  --panel: #10161c;
+  --panel2: #131a21;
+  --line: #212b35;
+  --line2: #2d3a47;
+  --ink: #e6edf3;
+  --dim: #8b98a5;
+  --faint: #55616d;
+  --brand: #FF7300;
+  --brand-soft: rgba(255,115,0,.12);
+  --ok: #3fb950;
+  --disp: "Bahnschrift", "Segoe UI", "Microsoft YaHei", sans-serif;
+  --mono: "Cascadia Code", "Cascadia Mono", Consolas, "Sarasa Mono SC", "Microsoft YaHei", monospace;
+  --body: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  --rad: 10px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body); color: var(--ink); background: var(--bg);
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 34px 34px, 34px 34px;
+}
+::selection { background: var(--brand); color: #000; }
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+.mono { font-family: var(--mono); }
+
+.rev { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s cubic-bezier(.2,.7,.2,1); }
+.rev.in { opacity: 1; transform: none; }
+.rev.d1 { transition-delay: .08s; } .rev.d2 { transition-delay: .16s; }
+.rev.d3 { transition-delay: .24s; } .rev.d4 { transition-delay: .32s; }
+
+/* ═══════════ 顶部电源灯条 ═══════════ */
+.pwr-strip { height: 3px; background: var(--line); position: relative; overflow: hidden; }
+.pwr-strip::before {
+  content: ""; position: absolute; inset: 0; width: 220px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  animation: pwrscan 3.2s linear infinite;
+}
+@keyframes pwrscan { from { transform: translateX(-240px); } to { transform: translateX(1400px); } }
+
+/* ═══════════ 导航 ═══════════ */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,13,16,.86); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-in { display: flex; align-items: center; gap: 26px; height: 62px; }
+.logo { display: flex; align-items: center; gap: 10px; font-family: var(--disp); font-weight: 700; font-size: 18px; letter-spacing: 1.5px; }
+.logo img { height: 30px; width: auto; display: block; }
+.ver-chip {
+  font-family: var(--mono); font-size: 11px; color: var(--ok);
+  border: 1px solid rgba(63,185,80,.35); border-radius: 999px; padding: 2px 9px;
+  background: rgba(63,185,80,.08); letter-spacing: .5px;
+}
+.ver-chip i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); margin-right: 6px; animation: led 2s ease infinite; vertical-align: 1px; }
+@keyframes led { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.nav-links { display: flex; gap: 22px; margin-left: 8px; font-size: 14px; color: var(--dim); }
+.nav-links a { position: relative; padding: 4px 0; transition: color .2s; }
+.nav-links a:hover { color: var(--ink); }
+.nav-links a::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--brand); transform: scaleX(0); transform-origin: left; transition: transform .22s; }
+.nav-links a:hover::after { transform: scaleX(1); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--disp); font-weight: 700; font-size: 15px; letter-spacing: .5px;
+  padding: 11px 22px; border-radius: var(--rad); cursor: pointer; user-select: none;
+  transition: transform .15s, box-shadow .15s, background .2s, border-color .2s;
+}
+.btn-brand { background: var(--brand); color: #140b02; }
+.btn-brand:hover { background: #ff8a26; transform: translateY(-1px); box-shadow: 0 6px 22px rgba(255,115,0,.35); }
+.btn-brand:active { transform: translateY(1px); }
+.btn-line { border: 1px solid var(--line2); color: var(--ink); background: var(--panel); }
+.btn-line:hover { border-color: var(--brand); color: var(--brand); }
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+.burger { display: none; margin-left: auto; background: none; border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.burger span { display: block; width: 18px; height: 2px; background: var(--ink); margin: 4px 0; }
+
+/* ═══════════ Hero ═══════════ */
+.hero { position: relative; padding: 88px 0 64px; overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; right: -180px; top: -120px; width: 560px; height: 560px;
+  background: radial-gradient(circle, rgba(255,115,0,.09), transparent 62%); pointer-events: none;
+}
+.hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 52px; align-items: center; }
+.kicker {
+  font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 2.5px;
+  color: var(--brand); display: inline-flex; align-items: center; gap: 10px;
+}
+.kicker::before { content: ""; width: 8px; height: 8px; background: var(--brand); border-radius: 2px; box-shadow: 0 0 10px rgba(255,115,0,.8); animation: led 1.6s ease infinite; }
+.hero h1 {
+  font-family: var(--disp); font-weight: 700;
+  font-size: clamp(38px, 4.6vw, 60px); line-height: 1.18;
+  margin: 22px 0 20px; letter-spacing: .5px;
+}
+.hero h1 .hl { color: var(--brand); }
+.hero h1 .ul { border-bottom: 4px solid var(--brand); padding-bottom: 2px; }
+.hero p.lead { font-size: 16.5px; line-height: 1.95; color: var(--dim); max-width: 46ch; }
+.hero p.lead b { color: var(--ink); font-weight: 600; }
+.hero-cta { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+.hero-meta { margin-top: 24px; font-family: var(--mono); font-size: 12px; color: var(--faint); display: flex; gap: 16px; flex-wrap: wrap; letter-spacing: .5px; }
+.hero-meta b { color: var(--dim); font-weight: 600; }
+
+/* ── 终端面板（Hero 主视觉） ── */
+.term-wrap { position: relative; }
+.term {
+  background: var(--panel); border: 1px solid var(--line2); border-radius: 12px;
+  overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,115,0,.05);
+}
+.term-bar { display: flex; align-items: center; gap: 8px; padding: 11px 16px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+.term-dot { width: 11px; height: 11px; border-radius: 50%; }
+.term-dot.r { background: #ff5f57; } .term-dot.y { background: #febc2e; } .term-dot.g { background: #28c840; }
+.term-title { margin-left: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--faint); letter-spacing: 1.5px; }
+.term-body { padding: 16px 18px; height: 300px; font-family: var(--mono); font-size: 12.6px; line-height: 1.92; overflow: hidden; background: linear-gradient(rgba(255,255,255,.014) 50%, transparent 50%) 0 0 / 100% 24.2px; }
+.term .ln { white-space: pre-wrap; word-break: break-all; }
+.term .p { color: var(--brand); font-weight: 600; }
+.term .dim { color: var(--faint); }
+.term .ok { color: var(--ok); }
+.term .warn { color: #febc2e; }
+.cursor { display: inline-block; width: 8px; height: 15px; background: var(--brand); vertical-align: -2px; animation: cblink 1s steps(1) infinite; }
+@keyframes cblink { 50% { opacity: 0; } }
+.term-status {
+  display: flex; align-items: center; gap: 14px; padding: 9px 16px;
+  background: var(--panel2); border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 1px;
+}
+.term-status .st { display: flex; align-items: center; gap: 6px; }
+.term-status .st i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: led 2s ease infinite; }
+.term-status .st.o i { background: var(--brand); }
+.term-status .fill { margin-left: auto; color: var(--faint); }
+/* 三只 IP 围着终端 */
+.peeker { position: absolute; z-index: 5; width: 82px; height: 82px; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+.peeker img { width: 100%; height: 100%; object-fit: contain; }
+.pk-cat { top: -46px; right: 34px; animation: bob 3.4s ease-in-out infinite; }
+.pk-hedgie { bottom: -40px; left: -26px; animation: bob 3.4s ease-in-out .6s infinite; }
+.pk-bot { bottom: -30px; right: -22px; width: 74px; height: 74px; animation: bob 3s ease-in-out 1s infinite; }
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.pk-hedgie::before {
+  content: ""; position: absolute; inset: 12%;
+  background: radial-gradient(circle, rgba(255,115,0,.35), transparent 65%);
+  animation: halo 2.4s ease-in-out infinite; z-index: -1;
+}
+@keyframes halo { 0%,100% { opacity: .4; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.1); } }
+.bot-ant { animation: ant 1.6s ease infinite; }
+@keyframes ant { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* ═══════════ 示波器波形带 ═══════════ */
+.scope { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg2); position: relative; }
+.scope-canvas { display: block; width: 100%; height: 96px; }
+.scope-label { position: absolute; top: 10px; left: 28px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); letter-spacing: 2px; }
+.scope-label b { color: var(--brand); font-weight: 600; }
+
+/* ═══════════ 跑马灯 ═══════════ */
+.marquee { background: #06080a; border-bottom: 1px solid var(--line); overflow: hidden; padding: 12px 0; }
+.marquee-track { display: flex; width: max-content; animation: scrollx 30s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes scrollx { to { transform: translateX(-50%); } }
+.mq { font-family: var(--mono); font-size: 12.5px; letter-spacing: 2px; white-space: nowrap; color: var(--dim); padding-right: 44px; }
+.mq::before { content: "▪ "; color: var(--brand); }
+
+/* ═══════════ 通用 Section ═══════════ */
+section { padding: 96px 0; }
+.sec-head { margin-bottom: 52px; }
+.sec-tag { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 3px; color: var(--brand); display: flex; align-items: center; gap: 14px; }
+.sec-tag::after { content: ""; flex: 0 0 64px; height: 1px; background: var(--line2); }
+.sec-head h2 { font-family: var(--disp); font-weight: 700; font-size: clamp(28px, 3.2vw, 42px); margin-top: 14px; letter-spacing: .5px; }
+.sec-head p { margin-top: 13px; color: var(--dim); font-size: 15.5px; line-height: 1.85; max-width: 62ch; }
+
+/* ═══════════ 工作原理 ═══════════ */
+.flow { display: flex; align-items: stretch; gap: 0; }
+.flow-node {
+  flex: 1; background: var(--panel); border: 1px solid var(--line2); border-radius: 12px;
+  padding: 26px 24px; position: relative; transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+.flow-node:hover { border-color: rgba(255,115,0,.55); transform: translateY(-3px); box-shadow: 0 14px 36px rgba(0,0,0,.4); }
+.flow-node::before {
+  content: ""; position: absolute; top: -6px; left: 24px; height: 12px; width: 72px;
+  background: repeating-linear-gradient(90deg, var(--line2) 0 5px, transparent 5px 11px);
+}
+.flow-node .fn-ic { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 15px; background: var(--panel2); border: 1px solid var(--line2); font-size: 21px; }
+.flow-node.hot { border-color: rgba(255,115,0,.5); background: linear-gradient(180deg, rgba(255,115,0,.06), var(--panel) 55%); }
+.flow-node.hot .fn-ic { background: var(--brand-soft); border-color: rgba(255,115,0,.4); }
+.flow-node h3 { font-family: var(--disp); font-size: 18px; font-weight: 700; }
+.flow-node .fn-sub { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-top: 4px; letter-spacing: 1.5px; }
+.flow-node p { margin-top: 12px; font-size: 13.5px; line-height: 1.8; color: var(--dim); }
+.wire { flex: 0 0 72px; align-self: center; height: 2px; position: relative; background: var(--line2); }
+.wire::before { content: ""; position: absolute; top: -2.5px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); animation: pkt 1.8s linear infinite; }
+@keyframes pkt { 0% { left: -6px; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: calc(100% - 1px); opacity: 0; } }
+
+/* ═══════════ 能力矩阵 ═══════════ */
+.caps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.cap {
+  background: var(--panel); border: 1px solid var(--line2); border-radius: 12px;
+  padding: 24px 22px; position: relative; overflow: hidden; transition: .2s;
+}
+.cap::after {
+  content: ""; position: absolute; left: 0; top: 0; height: 2px; width: 100%;
+  background: linear-gradient(90deg, var(--brand), transparent 70%);
+  opacity: 0; transition: opacity .25s;
+}
+.cap:hover { border-color: rgba(255,115,0,.5); transform: translateY(-3px); }
+.cap:hover::after { opacity: 1; }
+.cap-no { position: absolute; top: 16px; right: 18px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); letter-spacing: 1.5px; }
+.cap-ic { width: 42px; height: 42px; border-radius: 10px; background: var(--brand-soft); border: 1px solid rgba(255,115,0,.3); display: grid; place-items: center; margin-bottom: 14px; }
+.cap-ic svg { width: 21px; height: 21px; stroke: var(--brand); }
+.cap h3 { font-family: var(--disp); font-size: 17px; font-weight: 700; }
+.cap p { margin-top: 9px; font-size: 13.4px; line-height: 1.8; color: var(--dim); }
+.cap .tags { margin-top: 13px; display: flex; flex-wrap: wrap; gap: 6px; }
+.cap .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .5px; border: 1px solid var(--line2); border-radius: 5px; padding: 3px 8px; color: var(--dim); }
+
+/* ═══════════ 产品实拍 ═══════════ */
+.shots { background: var(--bg2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.tab {
+  font-family: var(--mono); font-size: 12.5px; letter-spacing: 1px; cursor: pointer;
+  padding: 9px 18px; border-radius: 999px; border: 1px solid var(--line2);
+  color: var(--dim); background: var(--panel); transition: .2s; user-select: none;
+}
+.tab:hover { color: var(--ink); border-color: var(--brand); }
+.tab.on { background: var(--brand); color: #140b02; border-color: var(--brand); font-weight: 600; }
+.shot-frame { background: var(--panel); border: 1px solid var(--line2); border-radius: 14px; padding: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+.shot-frame img { width: 100%; display: block; border-radius: 8px; }
+.shot-cap { margin-top: 12px; font-family: var(--mono); font-size: 11.5px; color: var(--faint); letter-spacing: 1px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.shot-cap b { color: var(--brand); }
+
+/* ═══════════ 数字带 ═══════════ */
+.band { padding: 58px 0; }
+.band-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
+.band b { font-family: var(--mono); font-size: clamp(28px, 3vw, 42px); font-weight: 700; color: var(--brand); letter-spacing: 1px; text-shadow: 0 0 24px rgba(255,115,0,.35); }
+.band span { display: block; margin-top: 8px; font-family: var(--mono); font-size: 11.5px; letter-spacing: 2px; color: var(--faint); }
+
+/* ═══════════ IP 家族 ═══════════ */
+.ips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.ip-card {
+  background: var(--panel); border: 1px solid var(--line2); border-radius: 14px;
+  padding: 28px 24px 24px; text-align: center; cursor: pointer; transition: .2s; position: relative;
+}
+.ip-card:hover { border-color: rgba(255,115,0,.55); transform: translateY(-4px); box-shadow: 0 18px 44px rgba(0,0,0,.45); }
+.ip-stage { height: 150px; display: grid; place-items: center; position: relative; }
+.ip-stage img { width: 128px; height: 128px; object-fit: contain; }
+.ip-stage svg { width: 118px; height: 118px; overflow: visible; }
+.ip-card h3 { font-family: var(--disp); font-size: 20px; font-weight: 700; margin-top: 8px; }
+.ip-role { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.5px; color: var(--brand); border: 1px solid rgba(255,115,0,.4); background: var(--brand-soft); border-radius: 999px; padding: 4px 13px; }
+.ip-card p { margin-top: 13px; font-size: 13.4px; line-height: 1.85; color: var(--dim); }
+.ip-say { margin-top: 14px; font-family: var(--mono); font-size: 12px; color: var(--ok); min-height: 20px; transition: opacity .2s; }
+
+/* ═══════════ 暖橙大 CTA（方案 A 的能量） ═══════════ */
+.cta { background: var(--brand); color: #140b02; text-align: center; position: relative; overflow: hidden; }
+.cta::before, .cta::after {
+  content: ""; position: absolute; border: 2.5px solid rgba(20,11,2,.18); border-radius: 50%; pointer-events: none;
+}
+.cta::before { width: 340px; height: 340px; left: -120px; top: -120px; }
+.cta::after { width: 260px; height: 260px; right: -90px; bottom: -110px; }
+.cta h2 { font-family: var(--disp); font-weight: 700; font-size: clamp(30px, 3.6vw, 48px); letter-spacing: .5px; color: #140b02; }
+.cta p { margin-top: 16px; font-size: 16px; color: rgba(20,11,2,.82); }
+.cta .btn { margin-top: 32px; font-size: 16.5px; padding: 15px 34px; background: #fff; color: #140b02; box-shadow: 5px 5px 0 rgba(20,11,2,.85); }
+.cta .btn:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 rgba(20,11,2,.85); }
+.cta-meta { margin-top: 18px; font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; color: rgba(20,11,2,.7); }
+.cta-pets { display: flex; justify-content: center; gap: 44px; margin-top: 44px; }
+.cta-pets .peeker { position: relative; width: 68px; height: 68px; top: auto; left: auto; bottom: auto; right: auto; filter: none; }
+.cta-pets .pk-hedgie::before { display: none; }
+.cta-pets svg { width: 100%; height: 100%; overflow: visible; }
+
+/* ═══════════ Footer ═══════════ */
+footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-top: 1px solid var(--line); }
+.foot-grid { display: flex; gap: 60px; flex-wrap: wrap; }
+.foot-brand { max-width: 300px; }
+.foot-brand .logo { color: var(--ink); margin-bottom: 12px; }
+.foot-brand p { font-size: 13px; line-height: 1.8; color: var(--faint); }
+.foot-col h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--brand); margin-bottom: 13px; }
+.foot-col a { display: block; font-size: 13.5px; color: var(--dim); padding: 4px 0; transition: color .2s; }
+.foot-col a:hover { color: var(--ink); }
+.foot-base { margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: 1px; }
+
+/* ═══════════ 响应式 ═══════════ */
+@media (max-width: 1020px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 44px; }
+  .caps, .ips { grid-template-columns: repeat(2, 1fr); }
+  .flow { flex-direction: column; gap: 12px; }
+  .wire { flex: 0 0 2px; width: 2px; height: 42px; margin: 0 auto; }
+  .wire::before { animation: pktv 1.8s linear infinite; top: -6px; left: -2.5px; }
+  @keyframes pktv { 0% { top: -6px; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { top: calc(100% - 1px); opacity: 0; } }
+  .band-grid { grid-template-columns: repeat(2, 1fr); row-gap: 32px; }
+  .nav-links { position: absolute; top: 62px; left: 0; right: 0; display: none; flex-direction: column; gap: 0; background: var(--bg2); border-bottom: 1px solid var(--line); padding: 10px 28px 16px; }
+  .nav-links.open { display: flex; }
+  .nav-links a { padding: 11px 0; font-size: 15px; }
+  .burger { display: block; }
+}
+@media (max-width: 620px) {
+  .caps, .ips { grid-template-columns: 1fr; }
+  section { padding: 68px 0; }
+  .pk-hedgie { left: -8px; } .pk-bot { right: -6px; }
+  .hero { padding: 56px 0 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .rev { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="pwr-strip"></div>
+
+<!-- ═══════════ 导航 ═══════════ -->
+<nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="#"><img src="assets/img/logo.png" alt="AICom"></a>
+    <span class="ver-chip mono"><i></i>v<span data-ver></span></span>
+    <div class="nav-links" id="navLinks">
+      <a href="#how">工作原理</a>
+      <a href="#caps">产品能力</a>
+      <a href="#shots">产品实拍</a>
+      <a href="#family">IP 家族</a>
+      <a href="#download">下载</a>
+    </div>
+    <div class="nav-right">
+      <a class="btn btn-line btn-sm" href="https://github.com/mengxiangrui1211/aicom-app" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a class="btn btn-brand btn-sm" href="#download">下载 AICom</a>
+      <button class="burger" id="burger" aria-label="菜单"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ Hero ═══════════ -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker rev in">LOCAL DEVICE · MCP GATEWAY · 9870</span>
+      <h1 class="rev in d1">让 AI Agent<br><span class="hl">摸到</span>你的<span class="ul">硬件</span></h1>
+      <p class="lead rev in d2">
+        AICom 是跑在你电脑上的<b>本地设备 MCP 网关</b>：串口终端、固件烧录、继电器电源控制，
+        全部注册成标准 MCP 工具。Claude Code 等 Agent 通过局域网直达开发板——
+        <b>纯本地运行，数据不出机</b>。
+      </p>
+      <div class="hero-cta rev in d3">
+        <a class="btn btn-brand" href="#download">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+          下载 Windows 版
+        </a>
+        <a class="btn btn-line" href="#how">看看工作原理</a>
+      </div>
+      <div class="hero-meta rev in d4">
+        <span><b>v<span data-ver></span></b></span><span>Windows 10 / 11</span>
+        <span>MCP Streamable HTTP</span><span>无云端 · 无账号 · MIT</span>
+      </div>
+    </div>
+
+    <div class="term-wrap rev in d2">
+      <div class="peeker pk-cat"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+      <div class="term">
+        <div class="term-bar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+          <span class="term-title">AICOM://MCP-GATEWAY — LIVE</span>
+        </div>
+        <div class="term-body" id="term">
+          <div class="ln"><span class="p">$</span> aicom gateway start</div>
+        </div>
+        <div class="term-status">
+          <span class="st"><i></i>MCP 在线</span>
+          <span class="st o"><i></i>COM5 已连接</span>
+          <span class="fill">PORT 9870 · STREAMABLE HTTP</span>
+        </div>
+      </div>
+      <div class="peeker pk-hedgie"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+      <div class="peeker pk-bot">
+        <svg viewBox="0 0 120 120">
+          <line x1="58" y1="30" x2="58" y2="18" stroke="#2d3a47" stroke-width="3.5" stroke-linecap="round"/>
+          <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#FF7300"/>
+          <rect x="30" y="32" width="56" height="54" rx="20" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+          <rect x="37" y="40" width="42" height="33" rx="12" fill="#0a0d10"/>
+          <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+          <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+          <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════ 示波器波形带 ═══════════ -->
+<div class="scope">
+  <canvas class="scope-canvas" id="scope"></canvas>
+  <div class="scope-label mono">CH1 · TX/RX <b>115200 8N1</b> · GBK DECODE</div>
+</div>
+
+<!-- ═══════════ 跑马灯 ═══════════ -->
+<div class="marquee">
+  <div class="marquee-track" id="mq-track">
+    <span class="mq">MCP STREAMABLE HTTP</span>
+    <span class="mq">串口终端 · GBK / UTF-8</span>
+    <span class="mq">DTR / RTS 控制</span>
+    <span class="mq">固件 SHA-256 回执</span>
+    <span class="mq">serial_script 断言测试</span>
+    <span class="mq">USB 继电器电源循环</span>
+    <span class="mq">插件市场 · 一键安装</span>
+    <span class="mq">纯本地 · 数据不出机</span>
+    <span class="mq">一通一达 · 三只 IP</span>
+  </div>
+</div>
+
+<!-- ═══════════ 工作原理 ═══════════ -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head rev">
+      <div class="sec-tag">01 / HOW IT WORKS</div>
+      <h2>两跳链路，从 Agent 到引脚</h2>
+      <p>Agent ↔ 网关走 HTTP（跨网络可达），网关 ↔ 硬件走进程内服务。固件走独立数据面上传，字节不进 AI 上下文。</p>
+    </div>
+    <div class="flow rev d1">
+      <div class="flow-node">
+        <div class="fn-ic">🤖</div>
+        <h3>AI Agent</h3>
+        <div class="fn-sub">CLAUDE CODE / TRAE / 任意 MCP 客户端</div>
+        <p>MCP 配置里填入网关地址，Agent 即可发现全部设备工具，零适配接入。</p>
+      </div>
+      <div class="wire"></div>
+      <div class="flow-node hot">
+        <div class="fn-ic">⚡</div>
+        <h3>AICom 网关</h3>
+        <div class="fn-sub">STREAMABLE HTTP · 默认 :9870</div>
+        <p>22 个核心工具 + 插件端点隔离注册；客户端身份识别、请求全量日志、固件中转落盘。</p>
+      </div>
+      <div class="wire"></div>
+      <div class="flow-node">
+        <div class="fn-ic">🔌</div>
+        <h3>你的设备</h3>
+        <div class="fn-sub">SERIAL / RELAY / 模组 / 开发板</div>
+        <p>串口读写、DTR/RTS 信号线、继电器断电上电、固件烧录——Agent 直接操作硬件。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 能力矩阵 ═══════════ -->
+<section id="caps" style="padding-top: 0;">
+  <div class="wrap">
+    <div class="sec-head rev">
+      <div class="sec-tag">02 / CAPABILITIES</div>
+      <h2>为硬件开发而生的六个能力</h2>
+    </div>
+    <div class="caps">
+      <div class="cap rev">
+        <span class="cap-no">CAP-01</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/></svg></div>
+        <h3>MCP 网关</h3>
+        <p>Streamable HTTP 为主、SSE 兼容兜底；工具动态注册，请求元数据全量落日志。</p>
+        <div class="tags"><span class="tag">HTTP :9870</span><span class="tag">SSE 兼容</span><span class="tag">会话管理</span></div>
+      </div>
+      <div class="cap rev d1">
+        <span class="cap-no">CAP-02</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M12 15h5"/></svg></div>
+        <h3>串口终端</h3>
+        <p>传统工具手感：GBK/UTF-8 双解码、毫秒级时间戳、DTR/RTS 独立控制、意外断连自动重连。</p>
+        <div class="tags"><span class="tag">GBK / UTF-8</span><span class="tag">自动重连</span><span class="tag">HEX 收发</span></div>
+      </div>
+      <div class="cap rev d2">
+        <span class="cap-no">CAP-03</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+        <h3>断言测试脚本</h3>
+        <p>serial_script 一次调用跑完整轮 AT 回归：命令 + 期望逐条断言，URC 干扰自动容错，直接给出 PASS / FAIL。</p>
+        <div class="tags"><span class="tag">50 步断言</span><span class="tag">失败重试</span><span class="tag">URC 容错</span></div>
+      </div>
+      <div class="cap rev">
+        <span class="cap-no">CAP-04</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M12 12l9-5.5"/><path d="M12 12v9.5"/></svg></div>
+        <h3>固件通道</h3>
+        <p>Agent 或 CI 直接推送固件（curl 一条命令），AICom 中转落盘并回执 SHA-256，逐字节可校验，单文件最大 128MB。</p>
+        <div class="tags"><span class="tag">SHA-256 回执</span><span class="tag">数据面直传</span></div>
+      </div>
+      <div class="cap rev d1">
+        <span class="cap-no">CAP-05</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></div>
+        <h3>电源控制</h3>
+        <p>USB 继电器断电 / 上电 / 电源循环，CH340 身份校验防串口漂移误控，烧录前断电进 Boot 一气呵成。</p>
+        <div class="tags"><span class="tag">电源循环</span><span class="tag">防误控校验</span><span class="tag">通道别名</span></div>
+      </div>
+      <div class="cap rev d2">
+        <span class="cap-no">CAP-06</span>
+        <div class="cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <h3>插件生态</h3>
+        <p>插件即独立 MCP Server：GitHub 仓库直装、市场一键安装、Python 依赖自动自愈，RDA 8909B 烧录插件开箱即用。</p>
+        <div class="tags"><span class="tag">独立端点</span><span class="tag">环境自愈</span><span class="tag">仓库直装</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 产品实拍 ═══════════ -->
+<section id="shots" class="shots">
+  <div class="wrap">
+    <div class="sec-head rev">
+      <div class="sec-tag">03 / SCREENSHOTS</div>
+      <h2>真实界面，先看再做决定</h2>
+      <p>全部截图来自 AICom v<span data-ver></span> 实机运行画面——深浅双主题、全中文界面。</p>
+    </div>
+    <div class="tabs rev" id="tabs">
+      <button class="tab on" data-img="dashboard.png" data-cap="网关状态 / 设备 / 工具数 / Agent 活跃一屏总览">仪表盘</button>
+      <button class="tab" data-img="terminal.png" data-cap="毫秒时间戳 / GBK 双解码 / 快捷命令库">串口终端</button>
+      <button class="tab" data-img="gateway.png" data-cap="端点 / 会话 / 请求实时监控">MCP 网关</button>
+      <button class="tab" data-img="tools.png" data-cap="核心工具 + 插件工具统一注册">工具列表</button>
+      <button class="tab" data-img="plugins.png" data-cap="独立 MCP Server 热插拔">插件管理</button>
+      <button class="tab" data-img="power.png" data-cap="USB 继电器通道卡片 / 电源循环">电源控制</button>
+    </div>
+    <div class="shot-frame rev d1">
+      <img id="shotImg" src="assets/shots/dashboard.png" alt="AICom 界面截图">
+      <div class="shot-cap"><span id="shotCap"></span><span>AICom v<span data-ver></span> · Windows</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 数字带 ═══════════ -->
+<div class="band">
+  <div class="wrap band-grid">
+    <div class="rev"><b>22+</b><span>核心 MCP 工具</span></div>
+    <div class="rev d1"><b>9870</b><span>MCP 默认端口</span></div>
+    <div class="rev d2"><b>SHA-256</b><span>固件回执校验</span></div>
+    <div class="rev d3"><b>0</b><span>云端依赖 · 全程本机</span></div>
+  </div>
+</div>
+
+<!-- ═══════════ IP 家族 ═══════════ -->
+<section id="family">
+  <div class="wrap">
+    <div class="sec-head rev">
+      <div class="sec-tag">04 / THE FAMILY</div>
+      <h2>一通一达，一软一硬</h2>
+      <p>AICom 的三位原住民住在应用标题栏里——不是贴图，是跟着系统事件实时动起来的动画 IP。点击它们试试。</p>
+    </div>
+    <div class="ips">
+      <div class="ip-card rev" id="card-cat">
+        <div class="ip-stage"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+        <h3>通通</h3>
+        <span class="ip-role">AGENT 化身 · 猫</span>
+        <p>聪明、警觉、好奇心重。谁接入了 Agent、谁在调用工具，它第一个知道。</p>
+        <div class="ip-say" id="say-cat">"逻辑的事，交给本喵。"</div>
+      </div>
+      <div class="ip-card rev d1" id="card-hedgie">
+        <div class="ip-stage"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+        <h3>达达</h3>
+        <span class="ip-role">MCP 化身 · 刺猬</span>
+        <p>浑身是刺，心却很软。背上的灯就是网关状态灯：在线呼吸、来请求爆闪、离线蔫掉。</p>
+        <div class="ip-say" id="say-hedgie">"灯亮着，链路就通着。"</div>
+      </div>
+      <div class="ip-card rev d2" id="card-bot">
+        <div class="ip-stage">
+          <svg viewBox="0 0 120 120">
+            <line x1="58" y1="30" x2="58" y2="18" stroke="#2d3a47" stroke-width="3.5" stroke-linecap="round"/>
+            <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#FF7300"/>
+            <rect x="30" y="32" width="56" height="54" rx="20" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+            <rect x="37" y="40" width="42" height="33" rx="12" fill="#0a0d10"/>
+            <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+            <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+            <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <h3>豆豆</h3>
+        <span class="ip-role">看板小助手 · 机器人</span>
+        <p>AICom 的原住民钉子户。在标题栏来回巡逻，Agent 一调工具就冲到达达身边一起干活。</p>
+        <div class="ip-say" id="say-bot">"设备稳不稳，看我就知道了~"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 暖橙大 CTA ═══════════ -->
+<section id="download" class="cta">
+  <div class="wrap">
+    <h2 class="rev">把 AI 接上你的桌面设备</h2>
+    <p class="rev d1">下载即用，安装包不含任何功能插件——能力随需从插件市场获取。</p>
+    <div class="rev d2">
+      <a class="btn" href="https://github.com/mengxiangrui1211/aicom-app/releases/latest" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+        下载 AICom Setup v<span data-ver></span>
+      </a>
+    </div>
+    <div class="cta-meta rev d3">WINDOWS 10 / 11 · 纯本地 · 免配置 · MIT LICENSE</div>
+    <div class="cta-pets rev d3">
+      <div class="peeker"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+      <div class="peeker"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+      <div class="peeker">
+        <svg viewBox="0 0 120 120">
+          <line x1="58" y1="30" x2="58" y2="18" stroke="#140b02" stroke-width="3.5" stroke-linecap="round"/>
+          <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#140b02"/>
+          <rect x="30" y="32" width="56" height="54" rx="20" fill="#140b02"/>
+          <rect x="37" y="40" width="42" height="33" rx="12" fill="#2a1607"/>
+          <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+          <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#140b02"/>
+          <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#140b02"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Footer ═══════════ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="logo" href="#"><img src="assets/img/logo.png" alt="AICom"></a>
+        <p>本地设备 MCP 网关。把串口、电源、固件能力开放给 AI Agent，数据不出你的电脑。</p>
+      </div>
+      <div class="foot-col">
+        <h4>产品</h4>
+        <a href="#how">工作原理</a>
+        <a href="#caps">产品能力</a>
+        <a href="#shots">产品实拍</a>
+        <a href="#download">下载</a>
+      </div>
+      <div class="foot-col">
+        <h4>文档</h4>
+        <a href="https://github.com/mengxiangrui1211/aicom-app/blob/main/docs/01-用户指南/01-快速上手.md" target="_blank" rel="noopener">快速上手</a>
+        <a href="https://github.com/mengxiangrui1211/aicom-app/blob/main/docs/01-用户指南/02-开发与使用手册.md" target="_blank" rel="noopener">开发与使用手册</a>
+        <a href="https://github.com/mengxiangrui1211/aicom-docs/blob/main/docs/AICom插件机制详解.md" target="_blank" rel="noopener">插件开发指南</a>
+      </div>
+      <div class="foot-col">
+        <h4>社区</h4>
+        <a href="https://github.com/mengxiangrui1211/aicom-app" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a href="https://github.com/mengxiangrui1211/aicom-app/releases" target="_blank" rel="noopener">全部版本</a>
+        <a href="https://github.com/mengxiangrui1211/aicom-app/issues" target="_blank" rel="noopener">问题反馈</a>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 AICOM · MIT LICENSE</span>
+      <span>一通一达 · 让 AI 摸到硬件</span>
+      <span>v<span data-ver></span> · BUILT FOR MAKERS</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── 版本号单一来源 ── */
+const APP_VERSION = '1.1.17';
+document.querySelectorAll('[data-ver]').forEach((el) => (el.textContent = APP_VERSION));
+
+/* ── 终端打字机（内容全部基于真实功能） ── */
+const TERM_LINES = [
+  ['dim',  '[MCP] 网关已启动 → http://192.168.1.8:9870/mcp'],
+  ['dim',  '[MCP] Streamable HTTP 就绪 · SSE 兼容通道待命'],
+  ['',     '[AGT] Claude Code 已连接 · 身份识别 ✓'],
+  ['',     '[TX ] → COM5 "AT+CSQ"'],
+  ['ok',   '[RX ] +CSQ: 24,0 · OK'],
+  ['ok',   '[AT ] 结构化: result=OK fields={"CSQ":"24,0"}'],
+  ['warn', '[RLY] CH1 电源循环 1500ms → 烧录窗口开启'],
+  ['',     '[FW ] firmware.bin 入库 · SHA-256 8f3a…c21 ✓'],
+  ['dim',  '[PLG] RDA-8909B-flasher v1.0.3 · 16 tools ready'],
+];
+const term = document.getElementById('term');
+let li = 0;
+function nextLine() {
+  if (li >= TERM_LINES.length) {
+    setTimeout(() => { term.innerHTML = '<div class="ln"><span class="p">$</span> aicom gateway start</div>'; li = 0; nextLine(); }, 5000);
+    return;
+  }
+  const [cls, text] = TERM_LINES[li++];
+  const div = document.createElement('div');
+  div.className = 'ln' + (cls ? ' ' + cls : '');
+  term.appendChild(div);
+  let ci = 0;
+  const cur = document.createElement('span');
+  cur.className = 'cursor';
+  div.appendChild(cur);
+  (function type() {
+    if (ci < text.length) {
+      cur.insertAdjacentText('beforebegin', text[ci++]);
+      setTimeout(type, 13 + Math.random() * 24);
+    } else {
+      cur.remove();
+      setTimeout(nextLine, 380);
+    }
+  })();
+}
+nextLine();
+
+/* ── 示波器波形：串口 NRZ 信号模拟，鼠标经过加速 ── */
+const scope = document.getElementById('scope');
+const sctx = scope.getContext('2d');
+let sx = 0, hovering = false;
+function sizeScope() { scope.width = scope.clientWidth * devicePixelRatio; scope.height = 96 * devicePixelRatio; }
+sizeScope(); addEventListener('resize', sizeScope);
+scope.addEventListener('mouseenter', () => (hovering = true));
+scope.addEventListener('mouseleave', () => (hovering = false));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+(function drawScope() {
+  if (!reduced) {
+    sx += hovering ? 4 : 1.6;
+    const W = scope.width, H = scope.height, mid = H / 2, amp = H * 0.28;
+    sctx.clearRect(0, 0, W, H);
+    sctx.strokeStyle = 'rgba(255,255,255,.045)'; sctx.lineWidth = 1;
+    for (let gx = 0; gx < W; gx += 44 * devicePixelRatio) { sctx.beginPath(); sctx.moveTo(gx, 0); sctx.lineTo(gx, H); sctx.stroke(); }
+    sctx.strokeStyle = 'rgba(255,255,255,.07)';
+    sctx.beginPath(); sctx.moveTo(0, mid); sctx.lineTo(W, mid); sctx.stroke();
+    sctx.strokeStyle = '#FF7300'; sctx.lineWidth = 1.6 * devicePixelRatio;
+    sctx.shadowColor = 'rgba(255,115,0,.55)'; sctx.shadowBlur = 7;
+    sctx.beginPath();
+    let hi = false;
+    for (let x = 0; x < W; x++) {
+      const world = x + (sx * devicePixelRatio) % (44 * devicePixelRatio);
+      const seg = Math.floor(world / (7 * devicePixelRatio));
+      const seed = Math.sin(seg * 12.9898) * 43758.5453;
+      const bit = (seed - Math.floor(seed)) > 0.5;
+      const y = bit ? mid - amp : mid + amp;
+      if (x === 0) sctx.moveTo(0, y);
+      else if (bit !== hi) { sctx.lineTo(x, hi ? mid - amp : mid + amp); sctx.lineTo(x, y); hi = bit; }
+      else sctx.lineTo(x, y);
+    }
+    sctx.stroke(); sctx.shadowBlur = 0;
+  }
+  requestAnimationFrame(drawScope);
+})();
+
+/* ── 跑马灯无缝循环 ── */
+const track = document.getElementById('mq-track');
+track.innerHTML += track.innerHTML;
+
+/* ── 滚动进场 ── */
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: 0.15 });
+document.querySelectorAll('.rev:not(.in)').forEach((el) => io.observe(el));
+
+/* ── 截图标签页 ── */
+const shotImg = document.getElementById('shotImg');
+const shotCap = document.getElementById('shotCap');
+function setShot(t) {
+  shotImg.src = 'assets/shots/' + t.dataset.img;
+  shotCap.innerHTML = '<b>' + t.textContent + '</b> · ' + t.dataset.cap;
+}
+document.querySelectorAll('#tabs .tab').forEach((t) => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#tabs .tab').forEach((x) => x.classList.remove('on'));
+    t.classList.add('on');
+    setShot(t);
+  });
+});
+setShot(document.querySelector('#tabs .tab.on'));
+
+/* ── IP 点击冒话 ── */
+const SAYS = {
+  'card-cat': ['"逻辑的事，交给本喵。"', '"有 Agent 来了我会蹭蹭你~"', '"插件的锅别甩给我喵！"'],
+  'card-hedgie': ['"灯亮着，链路就通着。"', '"谁在调工具，我一闪一闪告诉你。"', '"网关离线我会难过的…"'],
+  'card-bot': ['"设备稳不稳，看我就知道了~"', '"Agent 一叫我，我就冲到达达身边！"', '"去插件市场看看有什么新宝贝吧"'],
+};
+Object.keys(SAYS).forEach((id) => {
+  const card = document.getElementById(id);
+  const say = card.querySelector('.ip-say');
+  let si = 0;
+  card.addEventListener('click', () => {
+    si = (si + 1) % SAYS[id].length;
+    say.style.opacity = 0;
+    setTimeout(() => { say.textContent = SAYS[id][si]; say.style.opacity = 1; }, 180);
+  });
+});
+
+/* ── 移动端菜单 ── */
+const burger = document.getElementById('burger');
+const navLinks = document.getElementById('navLinks');
+burger.addEventListener('click', () => navLinks.classList.toggle('open'));
+navLinks.addEventListener('click', (e) => { if (e.target.tagName === 'A') navLinks.classList.remove('open'); });
+</script>
+</body>
+</html>

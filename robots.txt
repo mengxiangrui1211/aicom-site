@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mengxiangrui1211.github.io/aicom-site/sitemap.xml
