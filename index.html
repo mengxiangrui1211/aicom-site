@@ -167,6 +167,44 @@ nav {
 .bot-ant { animation: ant 1.6s ease infinite; }
 @keyframes ant { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
+/* ═══ IP 生命感引擎（移植自 aicom-web 原型）═══ */
+.pet { transform-origin: 50% 100%; }
+.pet img { transform-origin: 50% 100%; will-change: transform; }
+/* 脚下实时影子：与 bob 反相缩放 */
+.cshadow {
+  position: absolute; left: 50%; bottom: 2px;
+  width: 66%; height: 12px;
+  background: radial-gradient(ellipse, rgba(0,0,0,.5), transparent 68%);
+  animation: csh 3.4s ease-in-out infinite; pointer-events: none;
+}
+.pet[data-pet="hedgie"] .cshadow { animation-delay: .6s; }
+.pet[data-pet="bot"] .cshadow { animation: csh 3s ease-in-out 1s infinite; }
+@keyframes csh { 0%,100% { transform: translateX(-50%) scale(1); opacity: 1; } 50% { transform: translateX(-50%) scale(.78); opacity: .55; } }
+/* 家族卡 / CTA 的 IP 也浮起来（与首屏同款 bob，错峰） */
+.ip-stage.pet img, .cta-pets .peeker.pet img { animation: bob 3.4s ease-in-out infinite; }
+.ip-stage.pet[data-pet="hedgie"] img, .cta-pets .peeker.pet[data-pet="hedgie"] img { animation-delay: .6s; }
+/* 豆豆：弹性挤压 bob + 瞳孔平滑 + 电火花 */
+.pet[data-pet="bot"] { animation: bobbot 3s ease-in-out 1s infinite; }
+@keyframes bobbot { 0%,100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-5px) scale(.98,1.03); } }
+.bot-eyes { transform-box: fill-box; transform-origin: center; }
+.pupil { transition: transform .08s linear; }
+.bot-sparks { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.pet.spark .bot-sparks { animation: sparkp .65s ease; }
+@keyframes sparkp { 0% { opacity: 0; transform: translateY(5px) scale(.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-7px) scale(1.25); } }
+.pet.dbl .bot-ant { animation: dblp .9s ease; }
+@keyframes dblp { 0%,100% { opacity: 1; filter: brightness(1); } 18% { opacity: .15; } 32% { opacity: 1; filter: brightness(1.7); } 50% { opacity: .15; } 68% { opacity: 1; filter: brightness(1.9); } }
+/* 素材版随机小动作（作用于 img，不与容器 bob 冲突） */
+.pet.m-tilt img { animation: mtilt .9s ease; }
+@keyframes mtilt { 0%,100% { transform: rotate(0); } 30% { transform: rotate(-6deg); } 65% { transform: rotate(5deg); } }
+.pet.m-flip img { animation: mflip 1.1s ease; }
+@keyframes mflip { 0%,100% { transform: scaleX(1); } 45%,58% { transform: scaleX(-1); } }
+.pet.m-flare img { animation: mflare .9s ease; }
+@keyframes mflare { 30% { filter: brightness(1.45) drop-shadow(0 0 16px rgba(255,115,0,.95)); transform: scale(1.07); } }
+.pet.m-hop img { animation: hopp .55s ease 2; }
+@keyframes hopp { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-12px); } }
+/* 悬停互动：小跳两下 */
+.ip-card:hover .ip-stage.pet img, .peeker.pet:hover img { animation: hopp .55s ease 2; }
+
 /* ═══════════ 示波器波形带 ═══════════ */
 .scope { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg2); position: relative; }
 .scope-canvas { display: block; width: 100%; height: 96px; }
@@ -200,9 +238,21 @@ section { padding: 96px 0; }
   content: ""; position: absolute; top: -6px; left: 24px; height: 12px; width: 72px;
   background: repeating-linear-gradient(90deg, var(--line2) 0 5px, transparent 5px 11px);
 }
-.flow-node .fn-ic { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 15px; background: var(--panel2); border: 1px solid var(--line2); font-size: 21px; }
+.flow-node .fn-ic { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 15px; background: var(--panel2); border: 1px solid var(--line2); color: #9aa4b0; }
+.flow-node .fn-ic svg { width: 22px; height: 22px; display: block; }
 .flow-node.hot { border-color: rgba(255,115,0,.5); background: linear-gradient(180deg, rgba(255,115,0,.06), var(--panel) 55%); }
-.flow-node.hot .fn-ic { background: var(--brand-soft); border-color: rgba(255,115,0,.4); }
+.flow-node.hot .fn-ic { background: var(--brand-soft); border-color: rgba(255,115,0,.4); color: var(--brand); }
+/* 自定义光标：橙点 + 拖尾圆环（仅桌面精确指针启用） */
+html.custom-cursor, html.custom-cursor * { cursor: none !important; }
+.cursor-dot { position: fixed; z-index: 9999; pointer-events: none; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); top: 0; left: 0; transform: translate(-50%,-50%); opacity: 0; transition: transform .12s ease, opacity .2s ease; }
+.cursor-ring { position: fixed; z-index: 9998; pointer-events: none; width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255,115,0,.5); top: 0; left: 0; transform: translate(-50%,-50%); opacity: 0; transition: transform .18s ease, border-color .18s ease, opacity .2s ease; }
+html.custom-cursor.cursor-active .cursor-dot, html.custom-cursor.cursor-active .cursor-ring { opacity: 1; }
+.cursor-ring.cursor-hot { transform: translate(-50%,-50%) scale(1.7); border-color: var(--brand); }
+.cursor-dot.cursor-hot { transform: translate(-50%,-50%) scale(.55); background: #fff; }
+/* 橙色 CTA 区内光标反色，避免橙上橙隐形 */
+html.cursor-invert .cursor-dot { background: #140b02; }
+html.cursor-invert .cursor-ring { border-color: rgba(20,11,2,.55); }
+html.cursor-invert .cursor-dot.cursor-hot { background: #140b02; }
 .flow-node h3 { font-family: var(--disp); font-size: 18px; font-weight: 700; }
 .flow-node .fn-sub { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-top: 4px; letter-spacing: 1.5px; }
 .flow-node p { margin-top: 12px; font-size: 13.5px; line-height: 1.8; color: var(--dim); }
@@ -373,7 +423,7 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
     </div>
 
     <div class="term-wrap rev in d2">
-      <div class="peeker pk-cat"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+      <div class="peeker pk-cat pet" data-pet="cat"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
       <div class="term">
         <div class="term-bar">
           <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
@@ -388,14 +438,14 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
           <span class="fill">PORT 9870 · STREAMABLE HTTP</span>
         </div>
       </div>
-      <div class="peeker pk-hedgie"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
-      <div class="peeker pk-bot">
+      <div class="peeker pk-hedgie pet" data-pet="hedgie"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+      <div class="peeker pk-bot pet" data-pet="bot">
         <svg viewBox="0 0 120 120">
           <line x1="58" y1="30" x2="58" y2="18" stroke="#2d3a47" stroke-width="3.5" stroke-linecap="round"/>
           <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#FF7300"/>
           <rect x="30" y="32" width="56" height="54" rx="20" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
           <rect x="37" y="40" width="42" height="33" rx="12" fill="#0a0d10"/>
-          <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+          <g class="bot-eyes"><g class="pupil"><circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/></g></g>
           <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
           <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
           <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
@@ -436,21 +486,21 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
     </div>
     <div class="flow rev d1">
       <div class="flow-node">
-        <div class="fn-ic">🤖</div>
+        <div class="fn-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg></div>
         <h3>AI Agent</h3>
         <div class="fn-sub">CLAUDE CODE / TRAE / 任意 MCP 客户端</div>
         <p>MCP 配置里填入网关地址，Agent 即可发现全部设备工具，零适配接入。</p>
       </div>
       <div class="wire"></div>
       <div class="flow-node hot">
-        <div class="fn-ic">⚡</div>
+        <div class="fn-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
         <h3>AICom 网关</h3>
         <div class="fn-sub">STREAMABLE HTTP · 默认 :9870</div>
         <p>22 个核心工具 + 插件端点隔离注册；客户端身份识别、请求全量日志、固件中转落盘。</p>
       </div>
       <div class="wire"></div>
       <div class="flow-node">
-        <div class="fn-ic">🔌</div>
+        <div class="fn-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></div>
         <h3>你的设备</h3>
         <div class="fn-sub">SERIAL / RELAY / 模组 / 开发板</div>
         <p>串口读写、DTR/RTS 信号线、继电器断电上电、固件烧录——Agent 直接操作硬件。</p>
@@ -556,27 +606,27 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
     </div>
     <div class="ips">
       <div class="ip-card rev" id="card-cat">
-        <div class="ip-stage"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+        <div class="ip-stage pet" data-pet="cat"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
         <h3>通通</h3>
         <span class="ip-role">AGENT 化身 · 猫</span>
         <p>聪明、警觉、好奇心重。谁接入了 Agent、谁在调用工具，它第一个知道。</p>
         <div class="ip-say" id="say-cat">"逻辑的事，交给本喵。"</div>
       </div>
       <div class="ip-card rev d1" id="card-hedgie">
-        <div class="ip-stage"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+        <div class="ip-stage pet" data-pet="hedgie"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
         <h3>达达</h3>
         <span class="ip-role">MCP 化身 · 刺猬</span>
         <p>浑身是刺，心却很软。背上的灯就是网关状态灯：在线呼吸、来请求爆闪、离线蔫掉。</p>
         <div class="ip-say" id="say-hedgie">"灯亮着，链路就通着。"</div>
       </div>
       <div class="ip-card rev d2" id="card-bot">
-        <div class="ip-stage">
+        <div class="ip-stage pet" data-pet="bot">
           <svg viewBox="0 0 120 120">
             <line x1="58" y1="30" x2="58" y2="18" stroke="#2d3a47" stroke-width="3.5" stroke-linecap="round"/>
             <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#FF7300"/>
             <rect x="30" y="32" width="56" height="54" rx="20" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
             <rect x="37" y="40" width="42" height="33" rx="12" fill="#0a0d10"/>
-            <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+            <g class="bot-eyes"><g class="pupil"><circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/></g></g>
             <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
             <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
             <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#131a21" stroke="#2d3a47" stroke-width="1.5"/>
@@ -604,15 +654,15 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
     </div>
     <div class="cta-meta rev d3">WINDOWS 10 / 11 · 纯本地 · 免配置 · MIT LICENSE</div>
     <div class="cta-pets rev d3">
-      <div class="peeker"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
-      <div class="peeker"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
-      <div class="peeker">
+      <div class="peeker pet" data-pet="cat"><img src="assets/img/mascot-tongtong.png" alt="通通" draggable="false"></div>
+      <div class="peeker pet" data-pet="hedgie"><img src="assets/img/mascot-dada.png" alt="达达" draggable="false"></div>
+      <div class="peeker pet" data-pet="bot">
         <svg viewBox="0 0 120 120">
           <line x1="58" y1="30" x2="58" y2="18" stroke="#140b02" stroke-width="3.5" stroke-linecap="round"/>
           <circle class="bot-ant" cx="58" cy="15" r="5.5" fill="#140b02"/>
           <rect x="30" y="32" width="56" height="54" rx="20" fill="#140b02"/>
           <rect x="37" y="40" width="42" height="33" rx="12" fill="#2a1607"/>
-          <circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/>
+          <g class="bot-eyes"><g class="pupil"><circle cx="49" cy="55" r="4" fill="#FF7300"/><circle cx="67" cy="55" r="4" fill="#FF7300"/></g></g>
           <path d="M50 64 Q58 69.5 66 64" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
           <ellipse cx="46" cy="91" rx="8.5" ry="4.5" fill="#140b02"/>
           <ellipse cx="70" cy="91" rx="8.5" ry="4.5" fill="#140b02"/>
@@ -787,6 +837,110 @@ const burger = document.getElementById('burger');
 const navLinks = document.getElementById('navLinks');
 burger.addEventListener('click', () => navLinks.classList.toggle('open'));
 navLinks.addEventListener('click', (e) => { if (e.target.tagName === 'A') navLinks.classList.remove('open'); });
+
+/* ── IP 生命感引擎（移植自 aicom-web 原型：脚下影子 / 瞳孔追踪 / 电火花 / 随机小动作） ── */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pets = [...document.querySelectorAll('.pet')];
+const pupils = [];
+
+pets.forEach((el) => {
+  /* 1) 脚下实时影子（与 bob 反相缩放） */
+  if (!el.querySelector(':scope > .cshadow')) {
+    const sh = document.createElement('i');
+    sh.className = 'cshadow';
+    el.appendChild(sh);
+  }
+  /* 2) 豆豆瞳孔组 */
+  const eyes = el.querySelector('.bot-eyes');
+  if (eyes) {
+    const p = document.createElementNS(SVGNS, 'g');
+    p.setAttribute('class', 'pupil');
+    [...eyes.children].forEach((c) => p.appendChild(c));
+    eyes.appendChild(p);
+    pupils.push(p);
+  }
+  /* 3) 豆豆天线电火花 */
+  const ant = el.querySelector('.bot-ant');
+  if (ant && !el.querySelector(':scope .bot-sparks')) {
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'bot-sparks');
+    [[65, 8, 1.8], [51, 7, 1.4], [60, 3.5, 1.2]].forEach(([x, y, r]) => {
+      const c = document.createElementNS(SVGNS, 'circle');
+      c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r);
+      c.setAttribute('fill', '#FF7300');
+      g.appendChild(c);
+    });
+    ant.parentNode.appendChild(g);
+  }
+});
+
+/* 瞳孔追踪鼠标（rAF 节流） */
+let mx = innerWidth / 2, my = 0, rafP = null;
+window.addEventListener('mousemove', (e) => {
+  mx = e.clientX; my = e.clientY;
+  if (!rafP) rafP = requestAnimationFrame(trackCursor);
+});
+function trackCursor() {
+  rafP = null;
+  pupils.forEach((p) => {
+    const r = p.ownerSVGElement.getBoundingClientRect();
+    if (!r.width) return;
+    const dx = mx - (r.left + r.width / 2), dy = my - (r.top + r.height * 0.45);
+    const d = Math.hypot(dx, dy) || 1, k = Math.min(1, 160 / d);
+    p.style.transform = `translate(${(dx / d) * 3.2 * k}px, ${(dy / d) * 2.4 * k}px)`;
+  });
+}
+
+/* 生命感导演：每 2.8s 每只 50% 概率抽一个小动作（参数与原型一致） */
+const LIFE = { cat: ['m-tilt', 'm-flip', 'm-hop'], hedgie: ['m-flare', 'm-tilt', 'm-hop'], bot: ['spark', 'dbl'] };
+const ACT_MS = { 'm-tilt': 1000, 'm-flip': 1200, 'm-hop': 1200, 'm-flare': 1000, spark: 800, dbl: 1000 };
+if (!reduceMotion) setInterval(() => {
+  pets.forEach((el) => {
+    if (Math.random() > 0.5) return;
+    const acts = LIFE[el.dataset.pet];
+    if (!acts) return;
+    const act = acts[Math.floor(Math.random() * acts.length)];
+    Object.values(LIFE).flat().forEach((c) => el.classList.remove(c));
+    el.getBoundingClientRect(); /* 强制重排，动画可重启 */
+    el.classList.add(act);
+    setTimeout(() => el.classList.remove(act), ACT_MS[act] || 900);
+  });
+}, 2800);
+
+/* 自定义光标：点即时跟随 + 圆环弹性拖尾（借鉴 opc-hub，配色对齐本站） */
+(function () {
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (!fine || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const dot = document.createElement('div'); dot.className = 'cursor-dot';
+  const ring = document.createElement('div'); ring.className = 'cursor-ring';
+  document.body.append(ring, dot);
+  const root = document.documentElement;
+  root.classList.add('custom-cursor');
+  let mx = -100, my = -100, rx = -100, ry = -100, seen = false;
+  document.addEventListener('mousemove', (e) => {
+    mx = e.clientX; my = e.clientY;
+    if (!seen) { seen = true; rx = mx; ry = my; root.classList.add('cursor-active'); }
+    dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+  });
+  document.addEventListener('mouseleave', () => root.classList.remove('cursor-active'));
+  document.addEventListener('mouseenter', () => { if (seen) root.classList.add('cursor-active'); });
+  (function loop() {
+    rx += (mx - rx) * 0.14; ry += (my - ry) * 0.14;
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+    requestAnimationFrame(loop);
+  })();
+  const HOT = 'a, button, .ip-card, .peeker, .shot-thumb, [role="button"]';
+  document.querySelectorAll(HOT).forEach((el) => {
+    el.addEventListener('mouseenter', () => { ring.classList.add('cursor-hot'); dot.classList.add('cursor-hot'); });
+    el.addEventListener('mouseleave', () => { ring.classList.remove('cursor-hot'); dot.classList.remove('cursor-hot'); });
+  });
+  const cta = document.getElementById('download');
+  if (cta) {
+    cta.addEventListener('mouseenter', () => root.classList.add('cursor-invert'));
+    cta.addEventListener('mouseleave', () => root.classList.remove('cursor-invert'));
+  }
+})();
 </script>
 </body>
 </html>
