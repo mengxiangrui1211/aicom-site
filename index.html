@@ -291,8 +291,14 @@ html.cursor-invert .cursor-dot.cursor-hot { background: #140b02; }
 }
 .tab:hover { color: var(--ink); border-color: var(--brand); }
 .tab.on { background: var(--brand); color: #140b02; border-color: var(--brand); font-weight: 600; }
-.shot-frame { background: var(--panel); border: 1px solid var(--line2); border-radius: 14px; padding: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
-.shot-frame img { width: 100%; display: block; border-radius: 8px; }
+.shot-frame { position: relative; background: var(--panel); border: 1px solid var(--line2); border-radius: 14px; padding: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+.shot-frame > img { width: 100%; display: block; border-radius: 8px; }
+.shot-frame .shot-mascot {
+  position: absolute; right: 14px; bottom: calc(100% - 18px); width: 120px; height: auto;
+  pointer-events: none; user-select: none; z-index: 2;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.45));
+}
+@media (max-width: 720px) { .shot-frame .shot-mascot { display: none; } }
 .shot-cap { margin-top: 12px; font-family: var(--mono); font-size: 11.5px; color: var(--faint); letter-spacing: 1px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .shot-cap b { color: var(--brand); }
 
@@ -581,6 +587,7 @@ footer { background: #06080a; color: var(--dim); padding: 52px 0 32px; border-to
     </div>
     <div class="shot-frame rev d1">
       <img id="shotImg" src="assets/shots/dashboard.png" alt="AICom 界面截图">
+      <img class="shot-mascot" src="assets/video-src/tongtong-loop.png" alt="通通坐在窗口上看截图" draggable="false">
       <div class="shot-cap"><span id="shotCap"></span><span>AICom v<span data-ver></span> · Windows</span></div>
     </div>
   </div>
@@ -765,6 +772,10 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 if (!location.hash) window.addEventListener('load', () => window.scrollTo(0, 0));
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduced) {
+  const mascot = document.querySelector('.shot-mascot');
+  if (mascot) mascot.src = 'assets/video-src/tongtong-frame0.png';
+}
 (function drawScope() {
   if (!reduced) {
     sx += hovering ? 4 : 1.6;
