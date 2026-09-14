@@ -760,6 +760,10 @@ function sizeScope() { scope.width = scope.clientWidth * devicePixelRatio; scope
 sizeScope(); addEventListener('resize', sizeScope);
 scope.addEventListener('mouseenter', () => (hovering = true));
 scope.addEventListener('mouseleave', () => (hovering = false));
+/* 打开/刷新一律落在首屏（覆盖浏览器"刷新恢复上次位置"的默认行为） */
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (!location.hash) window.addEventListener('load', () => window.scrollTo(0, 0));
+
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 (function drawScope() {
   if (!reduced) {
