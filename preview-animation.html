@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>通通动画预览（未提交）</title>
+<style>
+  body { margin:0; min-height:100vh; background:#0d0f12; display:grid; place-items:center; gap:20px;
+         font-family:system-ui; color:#9aa4b0; padding:40px; box-sizing:border-box; }
+  .wrap { display:flex; gap:60px; align-items:flex-end; flex-wrap:wrap; justify-content:center; }
+  .stage { text-align:center; }
+  .stage img { width:300px; image-rendering:auto; }
+  .label { margin-top:12px; font-size:13px; letter-spacing:.1em; }
+  .card { background:#131a21; border:1px solid #2d3a47; border-radius:20px; padding:28px 28px 12px; }
+  .shadow-demo { position:relative; }
+  .shadow-demo::after { content:''; position:absolute; left:50%; bottom:-6px; width:160px; height:16px;
+         transform:translateX(-50%); background:radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <img src="assets/video-src/tongtong-loop.png" alt="通通敲键盘喝咖啡循环">
+      <div class="label">深色裸底 · 检查抠边</div>
+    </div>
+    <div class="stage shadow-demo">
+      <img src="assets/video-src/tongtong-loop.png" alt="卡片场景">
+      <div class="label">面板卡 + 脚下影子 · 模拟实际挂载</div>
+    </div>
+  </div>
+</body>
+</html>
